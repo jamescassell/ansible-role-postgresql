@@ -1,0 +1,6 @@
+- name: install postgresql with ident auth
+  hosts: "{{ ansible_limit | default('localhost') }}"
+  gather_facts: no
+  become: yes
+  roles:
+  - "{{ playbook_dir }}"

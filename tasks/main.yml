@@ -1,0 +1,59 @@
+---
+# tasks file for postgresql
+
+- name: install postgresql
+  yum:
+    name: postgresql-server
+
+- name: init db
+  command: postgresql-setup initdb
+  args:
+    creates: /var/lib/pgsql/data/base
+
+- name: install ident
+  yum:
+    name: authd
+
+- name: auth.socket.d dir
+  file:
+    dest: /etc/systemd/system/auth.socket.d/
+    state: directory
+
+- name: ident listen only on localhost
+  register: postgresql_ident_sock
+  copy:
+    dest: /etc/systemd/system/auth.socket.d/localhost.conf
+    content: |
+      [Socket]
+      ListenStream=
+      ListenStream=[::1]:113
+      ListenStream=127.0.0.1:113
+
+- name: auth@.service.d dir
+  file:
+    dest: /etc/systemd/system/auth@.service.d/
+    state: directory
+
+- name: ident don't encrypt
+  register: postgresql_ident_service
+  copy:
+    dest: /etc/systemd/system/auth@.service.d/no-encrypt.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/usr/sbin/in.authd -t60 --xerror --os
+
+- name: daemon-reload
+  systemd:
+    daemon_reload: yes
+  when:
+  - postgresql_ident_service is changed or
+    postgresql_ident_sock is changed
+
+- name: enable and start services
+  systemd:
+    name: "{{ item }}"
+    state: started
+  with_items:
+  - auth.socket
+  - postgresql
